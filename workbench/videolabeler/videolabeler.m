@@ -22,7 +22,7 @@ function varargout = videolabeler(varargin)
 
 % Edit the above text to modify the response to help videolabeler
 
-% Last Modified by GUIDE v2.5 10-Apr-2018 21:01:29
+% Last Modified by GUIDE v2.5 15-Apr-2018 15:21:48
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -60,6 +60,35 @@ guidata(hObject, handles);
 % UIWAIT makes videolabeler wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
+% load db_dir and the prefix of the filename
+dbDir = 'D:\dataset\studyforrest_dataset\movie_stimuli';
+prefix = 'test';
+clipList = dir(fullfile(dbDir, [prefix, '*.mov']));
+if isempty(clipList)
+    error('Error: No movie file found!');
+end
+
+% load first movie clip and the corresponding candidate labels
+input_video_file = fullfile(clipList(1).folder, clipList(1).name);
+[~, n, ~] = fileparts(input_video_file);
+input_label_file = fullfile(clipList(1).folder, [n, '_candidates.txt']);
+videoObj= VideoReader(input_video_file);
+% update handles
+handles.currentClip = 1;
+handles.clipList = clipList;
+handles.videoObject = videoObj;
+guidata(hObject, handles);
+
+% config GUI status
+set(handles.filenametext, 'String', clipList(1).name);
+% display first frame
+frame_1 = readFrame(videoObj);
+axes(handles.screen);
+image(frame_1);
+axis(handles.screen, 'off')
+% display time
+set(handles.text2, 'String', num2str(videoObj.CurrentTime));
+set(handles.text3, 'String', [' / ', num2str(videoObj.Duration)]);
 
 % --- Outputs from this function are returned to the command line.
 function varargout = videolabeler_OutputFcn(hObject, eventdata, handles)
@@ -71,45 +100,6 @@ function varargout = videolabeler_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 
-% --- Executes on button press in browsebutton.
-function browsebutton_Callback(hObject, eventdata, handles)
-% hObject    handle to browsebutton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% open a file brower and select the video file
-[video_file_name, video_file_path] = uigetfile({'*.mov'}, 'Pick a video file');
-if (video_file_path==0)
-    return;
-end
-input_video_file = [video_file_path, video_file_name];
-%input_label_file = [video_file_path, ]
-set(handles.filenametext, 'String', video_file_name);
-set(handles.filenametext, 'Visible', 'on')
-
-% acquiring video
-videoObj= VideoReader(input_video_file);
-% display first frame
-frame_1 = readFrame(videoObj);
-axes(handles.screen);
-image(frame_1);
-%drawnow;
-axis(handles.screen, 'off')
-% display frame number
-set(handles.text2, 'String', num2str(videoObj.CurrentTime));
-set(handles.text3, 'String', [' / ', num2str(videoObj.Duration)]);
-set(handles.text1, 'Visible', 'on');
-set(handles.text2, 'Visible', 'on');
-set(handles.text3, 'Visible', 'on');
-set(handles.browsebutton, 'Enable', 'off');
-set(handles.playbutton, 'Enable', 'on');
-set(handles.replaybutton, 'Enable', 'on');
-set(handles.savebutton, 'Enable', 'on');
-% update handles
-handles.videoObject = videoObj;
-guidata(hObject, handles);
-
-
 % --- Executes on button press in playbutton.
 function playbutton_Callback(hObject, eventdata, handles)
 % hObject    handle to playbutton (see GCBO)
@@ -117,27 +107,28 @@ function playbutton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 if strcmp(get(handles.playbutton, 'String'), 'Play')
     set(handles.playbutton, 'String', 'Pause');
-    videoObj = handles.videoObject;
-    axes(handles.screen);
-    while hasFrame(videoObj)
-        % display frames
-        frame = readFrame(videoObj);
-        set(handles.text2, 'String', num2str(videoObj.CurrentTime));
-        image(frame);
-        axis(handles.screen, 'off')
-        %pause(1/videoObj.FrameRate);
-    end
 else
     set(handles.playbutton, 'String', 'Play');
-    currentFrame = str2num(get(handles.text2, 'String'));
-    handles.currentFrame = currentFrame;
-    guidata(hObject, handles);
+end
+videoObj = handles.videoObject;
+axes(handles.screen);
+while hasFrame(videoObj) && strcmp(get(handles.playbutton, 'String'), 'Pause')
+    % display frames
+    frame = readFrame(videoObj);
+    set(handles.text2, 'String', num2str(videoObj.CurrentTime));
+    image(frame);
+    axis(handles.screen, 'off')
+    drawnow;
+    %pause(1/videoObj.FrameRate);
+end
+if videoObj.CurrentTime==videoObj.Duration
+    videoObj.CurrentTime=0;
+    set(handles.playbutton, 'String', 'Play');
 end
 
-
-% --- Executes on button press in replaybutton.
-function replaybutton_Callback(hObject, eventdata, handles)
-% hObject    handle to replaybutton (see GCBO)
+% --- Executes on button press in nextbutton.
+function nextbutton_Callback(hObject, eventdata, handles)
+% hObject    handle to nextbutton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
