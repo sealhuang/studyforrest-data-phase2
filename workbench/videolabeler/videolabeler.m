@@ -57,12 +57,6 @@ handles.output = hObject;
 % Update handles structure
 guidata(hObject, handles);
 
-% This sets up the initial plot - only do when we are invisible
-% so window can get raised using videolabeler.
-if strcmp(get(hObject,'Visible'),'off')
-    plot(rand(5));
-end
-
 % UIWAIT makes videolabeler wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
@@ -84,7 +78,7 @@ function browsebutton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % open a file brower and select the video file
-[video_file_name, video_file_path] = uigetfile({'*.mkv'}, 'Pick a video file');
+[video_file_name, video_file_path] = uigetfile({'*.mov'}, 'Pick a video file');
 if (video_file_path==0)
     return;
 end
@@ -94,16 +88,16 @@ set(handles.filenametext, 'String', video_file_name);
 set(handles.filenametext, 'Visible', 'on')
 
 % acquiring video
-videoObject = VideoReader(input_video_file);
+videoObj= VideoReader(input_video_file);
 % display first frame
-frame_1 = read(videoObject, 1);
+frame_1 = readFrame(videoObj);
 axes(handles.screen);
-imshow(frame_1);
-drawnow;
+image(frame_1);
+%drawnow;
 axis(handles.screen, 'off')
 % display frame number
-set(handles.text2, 'String', '1');
-set(handles.text3, 'String', ['  /  ', num2str(videoObject.NumberOfFrames)]);
+set(handles.text2, 'String', num2str(videoObj.CurrentTime));
+set(handles.text3, 'String', [' / ', num2str(videoObj.Duration)]);
 set(handles.text1, 'Visible', 'on');
 set(handles.text2, 'Visible', 'on');
 set(handles.text3, 'Visible', 'on');
@@ -112,8 +106,7 @@ set(handles.playbutton, 'Enable', 'on');
 set(handles.replaybutton, 'Enable', 'on');
 set(handles.savebutton, 'Enable', 'on');
 % update handles
-handles.videoObject = videoObject;
-handles.currentFrame = 1;
+handles.videoObject = videoObj;
 guidata(hObject, handles);
 
 
@@ -124,15 +117,15 @@ function playbutton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 if strcmp(get(handles.playbutton, 'String'), 'Play')
     set(handles.playbutton, 'String', 'Pause');
-    currentFrame = handles.currentFrame;
-    videoObject = handles.videoObject;
+    videoObj = handles.videoObject;
     axes(handles.screen);
-    for frameCount = (currentFrame+1):videoObject.NumberOfFrames
+    while hasFrame(videoObj)
         % display frames
-        set(handles.text2, 'String', num2str(frameCount));
-        frame = read(videoObject, frameCount);
-        imshow(frame);
-        drawnow;
+        frame = readFrame(videoObj);
+        set(handles.text2, 'String', num2str(videoObj.CurrentTime));
+        image(frame);
+        axis(handles.screen, 'off')
+        %pause(1/videoObj.FrameRate);
     end
 else
     set(handles.playbutton, 'String', 'Play');
