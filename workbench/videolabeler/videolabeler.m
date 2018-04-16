@@ -22,7 +22,7 @@ function varargout = videolabeler(varargin)
 
 % Edit the above text to modify the response to help videolabeler
 
-% Last Modified by GUIDE v2.5 15-Apr-2018 15:21:48
+% Last Modified by GUIDE v2.5 16-Apr-2018 21:44:53
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -61,26 +61,42 @@ guidata(hObject, handles);
 % uiwait(handles.figure1);
 
 % load db_dir and the prefix of the filename
-dbDir = 'D:\dataset\studyforrest_dataset\movie_stimuli';
-prefix = 'test';
-clipList = dir(fullfile(dbDir, [prefix, '*.mov']));
+handles.dbDir = '/Users/sealhuang/Downloads/studyforrest';
+%dbDir = 'D:\dataset\studyforrest_dataset\movie_stimuli';
+handles.prefix = 'fg_av_seg';
+clipList = dir(fullfile(handles.dbDir, [handles.prefix, '*.mov']));
 if isempty(clipList)
     error('Error: No movie file found!');
 end
 
-% load first movie clip and the corresponding candidate labels
-input_video_file = fullfile(clipList(1).folder, clipList(1).name);
-[~, n, ~] = fileparts(input_video_file);
-input_label_file = fullfile(clipList(1).folder, [n, '_candidates.txt']);
-videoObj= VideoReader(input_video_file);
 % update handles
-handles.currentClip = 1;
 handles.clipList = clipList;
+guidata(hObject, handles);
+
+% load first movie clip and the corresponding candidate labels
+reset_env(hObject, handles, 1)
+
+% --- Initialize GUI env for `i`th clip.
+function reset_env(hObject, handles, i)
+% hObject    handle to figure
+% handles    structure with handles and user data (see GUIDATA)
+% i          the index of clip
+clipList = handles.clipList;
+input_video_file = fullfile(clipList(i).folder, clipList(i).name);
+[~, n, ~] = fileparts(input_video_file);
+handles.currentPrefix = n;
+input_label_file = fullfile(clipList(i).folder, [n, '_candidate.txt']);
+videoObj= VideoReader(input_video_file);
+candidate_fid = fopen(input_label_file);
+candidate_labels = textscan(candidate_fid, '%s', 'delimiter', '\n');
+candidate_labels = candidate_labels{1};
+% update handles
+handles.currentClip = i;
 handles.videoObject = videoObj;
 guidata(hObject, handles);
 
 % config GUI status
-set(handles.filenametext, 'String', clipList(1).name);
+set(handles.filenametext, 'String', clipList(i).name);
 % display first frame
 frame_1 = readFrame(videoObj);
 axes(handles.screen);
@@ -89,6 +105,11 @@ axis(handles.screen, 'off')
 % display time
 set(handles.text2, 'String', num2str(videoObj.CurrentTime));
 set(handles.text3, 'String', [' / ', num2str(videoObj.Duration)]);
+% display candidate labels
+set(handles.candidatebox, 'String', candidate_labels);
+set(handles.selectedbox, 'String', {});
+set(handles.nextbutton, 'Enable', 'off');
+set(handles.playbutton, 'String', 'Play');
 
 % --- Outputs from this function are returned to the command line.
 function varargout = videolabeler_OutputFcn(hObject, eventdata, handles)
@@ -131,21 +152,36 @@ function nextbutton_Callback(hObject, eventdata, handles)
 % hObject    handle to nextbutton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+if handles.currentClip < length(handles.clipList)
+    reset_env(hObject, handles, handles.currentClip+1)
+end
+    
 
-
-% --- Executes on selection change in selectedlbox.
-function selectedlbox_Callback(hObject, eventdata, handles)
-% hObject    handle to selectedlbox (see GCBO)
+% --- Executes on selection change in selectedbox.
+function selectedbox_Callback(hObject, eventdata, handles)
+% hObject    handle to selectedbox (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: contents = cellstr(get(hObject,'String')) returns selectedlbox contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from selectedlbox
-
+% Hints: contents = cellstr(get(hObject,'String')) returns selectedbox contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from selectedbox
+if strcmp(get(handles.figure1, 'SelectionType'), 'open') && ~isempty(get(handles.selectedbox, 'String'))
+    index_selected = get(handles.selectedbox, 'Value');
+    selected_list = get(handles.selectedbox, 'String');
+    candidate_label = selected_list{index_selected};
+    % remove selected label from the selected labels
+    selected_list(index_selected) = [];
+    set(handles.selectedbox, 'String', selected_list);
+    set(handles.selectedbox, 'Value', 1);
+    % insert the selected label into selected label list
+    candidate_list = get(handles.candidatebox, 'String');
+    candidate_list = [candidate_label; cellstr(candidate_list)];
+    set(handles.candidatebox, 'String', candidate_list);
+end
 
 % --- Executes during object creation, after setting all properties.
-function selectedlbox_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to selectedlbox (see GCBO)
+function selectedbox_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to selectedbox (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -164,7 +200,20 @@ function candidatebox_Callback(hObject, eventdata, handles)
 
 % Hints: contents = cellstr(get(hObject,'String')) returns candidatebox contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from candidatebox
-
+if strcmp(get(handles.figure1, 'SelectionType'), 'open') && ~isempty(get(handles.candidatebox, 'String'))
+    index_selected = get(handles.candidatebox, 'Value');
+    candidate_list = get(handles.candidatebox, 'String');
+    selected_label = candidate_list{index_selected};
+    % remove selected label from the candidate labels
+    candidate_list(index_selected) = [];
+    set(handles.candidatebox, 'String', candidate_list);
+    set(handles.candidatebox, 'Value', 1);
+    % insert the selected label into selected label list
+    selected_list = get(handles.selectedbox, 'String');
+    selected_list = [selected_label; cellstr(selected_list)];
+    set(handles.selectedbox, 'String', selected_list);
+end
+    
 
 % --- Executes during object creation, after setting all properties.
 function candidatebox_CreateFcn(hObject, eventdata, handles)
@@ -210,7 +259,15 @@ function savebutton_Callback(hObject, eventdata, handles)
 % hObject    handle to savebutton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
+if ~isempty(get(handles.selectedbox, 'String'))
+    selected_labels = get(handles.selectedbox, 'String');
+    outfile = fullfile(handles.dbDir, [handles.currentPrefix, '_selected_labels.txt']);
+    outf = fopen(outfile, 'w');
+    fprintf(outf, '%s\n', selected_labels{:});
+    fclose(outf);
+    set(handles.nextbutton, 'Enable', 'on');
+end
+    
 
 % --- Executes during object creation, after setting all properties.
 function filenametext_CreateFcn(hObject, eventdata, handles)
